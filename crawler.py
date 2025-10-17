@@ -1,12 +1,30 @@
 import requests, re, html
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+import psycopg2
+import os
 
 def clean_txt(raw:str) -> str:
     text = html.unescape(raw)   # HTML 엔티티 복원
     text = re.sub(r"<[^>]+>", "", text)     # HTML 태그제거
     text = re.sub(r"\s+", " ", text)        # 공백정리
     return text.strip()
+
+def save_to_db(data: list):
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),  # 환경 변수에서 DB 정보 가져오기
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST")
+    )
+    cursor = conn.cursor()
+
+    insert_query = "INSERT INTO keyword(term, description) VALUES(%s, %s)"
+    cursor.executemany(insert_query, data)  # 여러 데이터를 한번에 저장
+
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def crawl_bok():
     base_url = "https://www.bok.or.kr/portal/ecEdu/ecWordDicary/searchCont.json?ecWordSn="
@@ -16,26 +34,24 @@ def crawl_bok():
         # url세팅후 요청
         res = requests.get(f"{base_url}{i}")
         if res.status_code != 200:
+            tqdm.write(f"Error {res.status_code} at {i}")
             continue
 
         data = res.json().get("result")
         if not data:
             continue
 
-        # 응답 데이터 파싱후 결과셋에 추가
+        # 응답 데이터 파싱
         keyword = data.get("ecWordNm")
         desc = clean_txt(data.get("ecWordCn", ""))
         desc_short = ". ".join(desc.split(".")[:2]) + "."
 
+        # 결과저장
         results.append((keyword, desc_short))
-        tqdm.write(f"{i}번 {keyword}")  # tqdm-safe 출력
-
-    print("\n✅ BOK 크롤링 완료!")
+    
+    save_to_db(results) # 한 번에 DB에 저장
+    tqdm.write("\n✅ BOK 크롤링 완료!")
     print(f"총 {len(results)}건 수집됨\n")
-
-    # 결과셋 터미널 출력(1000자)
-    for r in results[:3]:
-        print(f"• {r[0]} → {r[1][:1000]}")
 
 def crawl_kdi():
     base_url = "https://eiec.kdi.re.kr/material/wordDicDetail.do?dic_idx="
@@ -46,6 +62,7 @@ def crawl_kdi():
         url = f"{base_url}{i}"
         res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, verify=False)
         if res.status_code != 200:
+            tqdm.write(f"Error {res.status_code} at {i}")
             continue
 
         soup = BeautifulSoup(res.text, "html.parser")
@@ -62,17 +79,11 @@ def crawl_kdi():
         else:
             desc_short = ""
 
-
         # 결과 저장
         results.append((term_txt, desc_short))
-        tqdm.write(f"{i}번 {term_txt}")
-    
-    print("\n✅ KDI 크롤링 완료!")
+    save_to_db(results)  # 한 번에 DB에 저장
+    tqdm.write("\n✅ KDI 크롤링 완료!")
     print(f"총 {len(results)}건 수집됨\n")
-
-    # 결과셋 터미널 출력(1000자)
-    for r in results[:3]:
-        print(f"• {r[0]} → {r[1][:4000]}")
 
 if __name__ == "__main__":
     crawl_bok()
