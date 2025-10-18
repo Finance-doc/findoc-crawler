@@ -33,7 +33,7 @@ def crawl_bok():
     base_url = "https://www.bok.or.kr/portal/ecEdu/ecWordDicary/searchCont.json?ecWordSn="
     results = []
 
-    for i in tqdm(range(1, 10)):
+    for i in tqdm(range(10, 101)):
         # url세팅후 요청
         res = requests.get(f"{base_url}{i}")
         if res.status_code != 200:
@@ -65,7 +65,7 @@ def crawl_kdi():
     base_url = "https://eiec.kdi.re.kr/material/wordDicDetail.do?dic_idx="
     results = []
 
-    for i in tqdm(range(1,10)):
+    for i in tqdm(range(10,101)):
         #url 세팅후 요청
         url = f"{base_url}{i}"
         res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, verify=False)
