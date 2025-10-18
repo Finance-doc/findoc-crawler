@@ -19,7 +19,10 @@ def save_to_db(data: list):
     )
     cursor = conn.cursor()
 
-    insert_query = "INSERT INTO keyword(term, description) VALUES(%s, %s)"
+    insert_query = """
+        INSERT INTO keyword (term, description, source, link)
+        VALUES (%s, %s, %s, %s)
+    """
     cursor.executemany(insert_query, data)  # 여러 데이터를 한번에 저장
 
     conn.commit()
@@ -47,7 +50,12 @@ def crawl_bok():
         desc_short = ". ".join(desc.split(".")[:2]) + "."
 
         # 결과저장
-        results.append((keyword, desc_short))
+        results.append((
+            keyword,
+            desc_short,
+            "BOK(한국은행) 경제용어사전",
+            "https://www.bok.or.kr/portal/ecEdu/ecWordDicary/search.do?menuNo=200688"
+        ))
     
     save_to_db(results) # 한 번에 DB에 저장
     tqdm.write("\n✅ BOK 크롤링 완료!")
@@ -80,7 +88,13 @@ def crawl_kdi():
             desc_short = ""
 
         # 결과 저장
-        results.append((term_txt, desc_short))
+        results.append((
+            term_txt,
+            desc_short,
+            "KDI(한국개발연구원) 경제교육정보센터",
+            "https://eiec.kdi.re.kr/material/wordDic.do"
+        ))
+
     save_to_db(results)  # 한 번에 DB에 저장
     tqdm.write("\n✅ KDI 크롤링 완료!")
     print(f"총 {len(results)}건 수집됨\n")
